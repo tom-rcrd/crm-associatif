@@ -1,0 +1,8 @@
+interface ImportMetaEnv {
+  readonly VITE_BLINK_PROJECT_ID: string
+  readonly VITE_BLINK_PUBLISHABLE_KEY: string
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv
+}
