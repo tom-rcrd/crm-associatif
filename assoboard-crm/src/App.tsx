@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { LayoutDashboard, FileText, Landmark, Map, Settings, LogOut, Search } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
 import { supabase } from './lib/supabase'
@@ -11,6 +12,7 @@ import { Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, Sid
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './components/ui/card'
 import { Input } from './components/ui/input'
 import { Label } from './components/ui/label'
+import ResetPassword from './pages/ResetPassword'
 
 // Pages
 import Dashboard from './features/dashboard/Dashboard'
@@ -122,9 +124,13 @@ function LoginPage({ onLogin, onRegister }: {
   )
 }
 
-export default function App() {
-  const { user, loading, login, register, logout, isAuthenticated } = useAuth()
-
+function AppContent({ 
+  user, 
+  logout 
+}: { 
+  user: any
+  logout: () => Promise<void>
+}) {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [settings, setSettings] = useState({ show_weather: true, show_speed: true })
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -143,7 +149,6 @@ export default function App() {
               show_speed: data.show_speed
             })
           } else if (error?.code === 'PGRST116') {
-            // Pas de settings, on les crée
             supabase.from('user_settings').insert({
               user_id: user.id,
               show_weather: true,
@@ -165,18 +170,6 @@ export default function App() {
     
     toast.success('Paramètres mis à jour')
   }
-
-  if (loading) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <Skeleton className="h-12 w-12 rounded-full" />
-      </div>
-    )
-  }
-
-if (!isAuthenticated) {
-  return <LoginPage onLogin={login} onRegister={register} />
-}
 
   return (
     <SidebarProvider>
@@ -267,7 +260,6 @@ if (!isAuthenticated) {
         </SidebarInset>
       </div>
 
-      {/* Dialog Paramètres */}
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent>
           <DialogHeader>
@@ -294,4 +286,64 @@ if (!isAuthenticated) {
       </Dialog>
     </SidebarProvider>
   )
-} 
+}
+
+// Composant qui gère la détection du token de recovery
+function AppRouter() {
+  const { user, loading, login, register, logout, isAuthenticated } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(() => {
+    // Détecte le token de recovery dans le hash
+    const hashParams = new URLSearchParams(window.location.hash.substring(1))
+    const type = hashParams.get('type')
+    
+    if (type === 'recovery') {
+      navigate('/reset-password', { replace: true })
+    }
+  }, [navigate])
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <Skeleton className="h-12 w-12 rounded-full" />
+      </div>
+    )
+  }
+
+  return (
+    <Routes>
+      <Route 
+        path="/login" 
+        element={
+          isAuthenticated ? 
+            <Navigate to="/" replace /> : 
+            <LoginPage onLogin={login} onRegister={register} />
+        } 
+      />
+      
+      <Route 
+        path="/reset-password" 
+        element={<ResetPassword />} 
+      />
+
+      <Route 
+        path="/*" 
+        element={
+          !isAuthenticated ? 
+            <Navigate to="/login" replace /> : 
+            <AppContent user={user} logout={logout} />
+        } 
+      />
+    </Routes>
+  )
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppRouter />
+    </BrowserRouter>
+  )
+}
